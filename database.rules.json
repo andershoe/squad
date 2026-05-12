@@ -1,0 +1,25 @@
+{
+  "rules": {
+    "users": {
+      ".read": true,
+      ".write": true
+    },
+    "teams": {
+      ".read": true,
+      ".write": true
+    },
+    "inviteIndex": {
+      ".read": true,
+      ".write": true
+    },
+    "_comment": [
+      "PHASE 1 NOTE: Open read/write because invite-code auth (no Firebase Auth).",
+      "Anyone with the project URL can in theory write. For private team apps this is",
+      "acceptable; for a public-facing product, harden in Phase 2:",
+      "  1. Enable Firebase Anonymous Auth",
+      "  2. Restrict /users/{uid} writes to auth.uid === $uid",
+      "  3. Restrict /teams/{teamId}/members/{uid} similarly",
+      "  4. Move invite validation server-side via Cloud Functions"
+    ]
+  }
+}

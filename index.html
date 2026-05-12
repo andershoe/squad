@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1a1f" id="theme-color-meta" />
+  <title>Squad</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <div id="splash" class="splash">
+    <div class="app-mark"><span class="app-mark-dot"></span><span class="app-mark-dot"></span><span class="app-mark-dot"></span></div>
+    <p>Squad</p>
+  </div>
+
+  <!-- ============================================================
+       Onboarding: pick a path
+       ============================================================ -->
+  <section id="view-welcome" class="view" hidden>
+    <div class="onb-wrap">
+      <div class="app-mark"><span class="app-mark-dot"></span><span class="app-mark-dot"></span><span class="app-mark-dot"></span></div>
+      <h1>Squad</h1>
+      <p class="muted">No-ads team manager.<br>Events, RSVPs, and a roster — for one team or many.</p>
+
+      <button id="btn-go-join" class="btn btn-primary" style="margin-top: 28px">I have an invite code</button>
+      <button id="btn-go-create" class="btn btn-secondary">Create a new team</button>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       Join an existing team
+       ============================================================ -->
+  <section id="view-join" class="view" hidden>
+    <button class="back-btn" data-back-to="welcome">← Back</button>
+    <div class="onb-wrap">
+      <h1>Join a team</h1>
+      <p class="muted">Enter the invite code from your coach.</p>
+
+      <form id="join-form" class="form">
+        <label for="join-code">Invite code</label>
+        <input id="join-code" type="text" inputmode="text" autocomplete="off"
+               autocapitalize="characters" maxlength="8" placeholder="ABCD23" required />
+
+        <label for="join-name">Your name</label>
+        <input id="join-name" type="text" autocomplete="name" placeholder="e.g. Andy Goodwin" required />
+
+        <div id="join-parent-block" hidden>
+          <label for="join-child">Your child's name</label>
+          <input id="join-child" type="text" autocomplete="off" placeholder="e.g. Jack" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Join</button>
+        <p id="join-error" class="error" hidden></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       Create a new team (becomes founding coach)
+       ============================================================ -->
+  <section id="view-create" class="view" hidden>
+    <button class="back-btn" data-back-to="welcome">← Back</button>
+    <div class="onb-wrap">
+      <h1>Create a team</h1>
+      <p class="muted">You'll be set up as the team's coach. Invite players and parents next.</p>
+
+      <form id="create-form" class="form">
+        <label for="ct-name">Team name</label>
+        <input id="ct-name" type="text" placeholder="e.g. Parley Youth U11s" required />
+
+        <label for="ct-age">Age group (optional)</label>
+        <input id="ct-age" type="text" placeholder="e.g. U11s, Senior, Adult" />
+
+        <label>Sport</label>
+        <div class="seg" id="ct-sport-seg">
+          <button type="button" class="seg-btn active" data-sport="football">Football</button>
+          <button type="button" class="seg-btn" data-sport="netball">Netball</button>
+          <button type="button" class="seg-btn" data-sport="rugby">Rugby</button>
+          <button type="button" class="seg-btn" data-sport="cricket">Cricket</button>
+          <button type="button" class="seg-btn" data-sport="hockey">Hockey</button>
+          <button type="button" class="seg-btn" data-sport="other">Other</button>
+        </div>
+        <input type="hidden" id="ct-sport" value="football" />
+
+        <label>Primary colour</label>
+        <div class="swatch-grid" id="ct-primary-grid"></div>
+        <input type="hidden" id="ct-primary" value="#0b2545" />
+
+        <label>Accent colour</label>
+        <div class="swatch-grid" id="ct-accent-grid"></div>
+        <input type="hidden" id="ct-accent" value="#d62828" />
+
+        <label>Your name</label>
+        <input id="ct-coach-name" type="text" autocomplete="name" placeholder="e.g. Andy Goodwin" required />
+
+        <button type="submit" class="btn btn-primary">Create team</button>
+        <p id="create-error" class="error" hidden></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       Main app shell
+       ============================================================ -->
+  <section id="view-app" class="view" hidden>
+
+    <header class="app-header">
+      <button id="btn-switch-team" class="header-team-btn" aria-label="Switch team">
+        <span class="crest" id="header-crest">SQ</span>
+        <span class="header-text">
+          <span class="header-title" id="header-title">Team</span>
+          <span class="header-sub" id="header-sub"></span>
+        </span>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+          <polyline points="3,5 7,9 11,5" />
+        </svg>
+      </button>
+    </header>
+
+    <main id="tab-events" class="tab-panel">
+      <div class="section-label">Up next</div>
+      <div id="events-list" class="events-list">
+        <div class="empty">Loading…</div>
+      </div>
+      <button id="btn-new-event" class="fab" hidden aria-label="New event">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="10" y1="4" x2="10" y2="16" /><line x1="4" y1="10" x2="16" y2="10" />
+        </svg>
+      </button>
+    </main>
+
+    <main id="tab-chat" class="tab-panel" hidden>
+      <div class="section-label">Team chat</div>
+      <div class="placeholder">
+        <p>Coming soon.</p>
+        <p class="muted">One team chat plus an announcements channel from the coach.</p>
+      </div>
+    </main>
+
+    <main id="tab-team" class="tab-panel" hidden>
+      <div class="section-label">Squad</div>
+      <div id="team-list" class="team-list"></div>
+
+      <div class="section-label" id="invites-label" hidden>Invite codes</div>
+      <div id="invites-list" class="invites-list" hidden></div>
+      <button id="btn-new-invite" class="btn btn-secondary" hidden>Generate invite code</button>
+    </main>
+
+    <main id="tab-me" class="tab-panel" hidden>
+      <div class="section-label">Account</div>
+      <div class="card">
+        <div id="me-name" class="card-title">…</div>
+        <div id="me-role" class="muted"></div>
+        <div id="me-child" class="muted" hidden></div>
+      </div>
+
+      <div class="section-label">My teams</div>
+      <div id="my-teams-list" class="team-list"></div>
+      <button id="btn-add-team" class="btn btn-secondary" style="margin: 8px 16px 0; width: calc(100% - 32px);">Add another team</button>
+
+      <div class="section-label">App</div>
+      <div class="card stack">
+        <button id="btn-install" class="link-row" hidden>
+          <span>Add to home screen</span><span class="chev">›</span>
+        </button>
+        <button id="btn-signout" class="link-row danger">
+          <span>Sign out everywhere</span><span class="chev">›</span>
+        </button>
+      </div>
+
+      <p class="footer-note">Squad · v0.2</p>
+    </main>
+
+    <nav class="tab-bar" role="tablist">
+      <button class="tab active" data-tab="events" aria-label="Events">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="4" width="14" height="13" rx="2" /><line x1="3" y1="8" x2="17" y2="8" />
+          <line x1="7" y1="2" x2="7" y2="5" /><line x1="13" y1="2" x2="13" y2="5" />
+        </svg>
+        <span>Events</span>
+      </button>
+      <button class="tab" data-tab="chat" aria-label="Chat">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M3 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H8l-4 3v-3a2 2 0 0 1-1-2V5z" />
+        </svg>
+        <span>Chat</span>
+      </button>
+      <button class="tab" data-tab="team" aria-label="Team">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="7" cy="8" r="3" /><circle cx="14" cy="9" r="2.5" />
+          <path d="M2 17c0-2.5 2-4 5-4s5 1.5 5 4" /><path d="M12 17c0-2 1.5-3 3.5-3s3.5 1 3.5 3" />
+        </svg>
+        <span>Team</span>
+      </button>
+      <button class="tab" data-tab="me" aria-label="Me">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="10" cy="7" r="3.5" /><path d="M3 18c0-3.5 3-6 7-6s7 2.5 7 6" />
+        </svg>
+        <span>Me</span>
+      </button>
+    </nav>
+  </section>
+
+  <!-- ============================================================
+       Modals
+       ============================================================ -->
+  <div id="modal-event" class="modal" hidden>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <button id="modal-close" class="modal-close" aria-label="Close">×</button>
+      <div id="modal-body"></div>
+    </div>
+    <div class="modal-backdrop" data-close="1"></div>
+  </div>
+
+  <div id="modal-new-event" class="modal" hidden>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <button class="modal-close" data-close-new="1" aria-label="Close">×</button>
+      <h2 id="ne-heading">New event</h2>
+      <form id="form-new-event" class="form">
+        <label>Type</label>
+        <div class="seg" id="ne-type-seg"></div>
+        <input type="hidden" id="ne-type" value="match" />
+
+        <label for="ne-title">Title</label>
+        <input id="ne-title" type="text" placeholder="e.g. Parley v Ferndown" required />
+
+        <label for="ne-when">Date &amp; kick-off</label>
+        <input id="ne-when" type="datetime-local" required />
+
+        <label for="ne-location">Location</label>
+        <input id="ne-location" type="text" placeholder="e.g. Parley Rec, Pitch 2" />
+
+        <label for="ne-notes">Notes (optional)</label>
+        <textarea id="ne-notes" rows="2" placeholder="Meet 15 min before, blue strip"></textarea>
+
+        <button type="submit" class="btn btn-primary">Create event</button>
+      </form>
+    </div>
+    <div class="modal-backdrop" data-close-new="1"></div>
+  </div>
+
+  <div id="modal-switcher" class="modal" hidden>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <button class="modal-close" data-close-switcher="1" aria-label="Close">×</button>
+      <h2>My teams</h2>
+      <div id="switcher-list" class="team-list" style="padding: 0; margin: 8px 0 0;"></div>
+      <button id="btn-switcher-add" class="btn btn-secondary" style="width: 100%; margin-top: 16px;">Join or create another team</button>
+    </div>
+    <div class="modal-backdrop" data-close-switcher="1"></div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="firebase-config.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
