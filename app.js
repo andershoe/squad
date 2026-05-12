@@ -184,8 +184,7 @@ function showView(name) {
 }
 
 function showWelcome() {
-  // Restore default neutral theme on the welcome screen
-  setTheme("#1a1a1f", "#d62828");
+  setTheme("#d62828", "#1a1a1f");
   showView("welcome");
 }
 

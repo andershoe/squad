@@ -115,6 +115,18 @@ button { font-family: inherit; }
 .onb-wrap h1 { margin: 4px 0 0; font-size: 26px; font-weight: 600; }
 .onb-wrap > p { margin: 0 0 8px; text-align: center; }
 
+.onb-wrap .btn-secondary {
+  background: var(--surface);
+  border-color: var(--line-2);
+  color: var(--ink);
+}
+@media (prefers-color-scheme: dark) {
+  .onb-wrap .btn-secondary {
+    background: var(--surface-2);
+    border-color: var(--line-2);
+  }
+}
+
 .back-btn {
   position: absolute;
   top: calc(12px + var(--safe-top));
