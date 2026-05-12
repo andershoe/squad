@@ -11,11 +11,11 @@
 // =====================================================================
 
 window.FIREBASE_CONFIG = {
-  apiKey: "REPLACE_ME",
-  authDomain: "REPLACE_ME.firebaseapp.com",
-  databaseURL: "https://REPLACE_ME-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "REPLACE_ME",
-  storageBucket: "REPLACE_ME.appspot.com",
-  messagingSenderId: "REPLACE_ME",
-  appId: "REPLACE_ME"
+  apiKey: "AIzaSyB0bnYbcNu6_Ba5VVH1zewjIMl_2N6n_vM",
+  authDomain: "squad-c97d7.firebaseapp.com",
+  databaseURL: "https://squad-c97d7-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "squad-c97d7",
+  storageBucket: "squad-c97d7.firebasestorage.app",
+  messagingSenderId: "1083048101914",
+  appId: "1:1083048101914:web:f6648c8e7ae690e818a9a3"
 };
