@@ -227,7 +227,7 @@ async function signInWithGoogle() {
     await signInWithPopup(auth, googleProvider);
   } catch (err) {
     if (err.code !== "auth/popup-closed-by-user" && err.code !== "auth/cancelled-popup-request") {
-      $("signin-error").textContent = "Sign-in failed. Please try again.";
+      $("signin-error").textContent = `Sign-in failed: ${err.code || err.message}`;
       $("signin-error").hidden = false;
     }
   }
