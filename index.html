@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=5" />
 </head>
 <body>
 
@@ -28,6 +28,7 @@
 
       <button id="btn-go-join" class="btn btn-primary" style="margin-top: 28px">I have an invite code</button>
       <button id="btn-go-create" class="btn btn-secondary">Create a new team</button>
+      <button id="btn-welcome-signout" class="btn-text-muted" style="margin-top: 24px">Sign out</button>
     </div>
   </section>
 
@@ -43,14 +44,19 @@
       <form id="join-form" class="form">
         <label for="join-code">Invite code</label>
         <input id="join-code" type="text" inputmode="text" autocomplete="off"
-               autocapitalize="characters" maxlength="8" placeholder="ABCD23" required />
+               autocapitalize="characters" maxlength="6" placeholder="ABCD23" required />
+        <small style="color:var(--ink-3);font-size:12px;margin-top:-8px">6 characters — 4 letters then 2 numbers, e.g. ABCD23</small>
 
         <label for="join-name">Your name</label>
         <input id="join-name" type="text" autocomplete="name" placeholder="e.g. Andy Goodwin" required />
 
         <div id="join-parent-block" hidden>
-          <label for="join-child">Your child's name</label>
-          <input id="join-child" type="text" autocomplete="off" placeholder="e.g. Jack" />
+          <label>Which player is your child?</label>
+          <div id="join-player-list" class="player-pick-list"></div>
+          <button type="button" id="btn-child-not-listed" class="btn-text-muted" style="font-size:13px;margin-top:4px" hidden>Child not in the list? Add them</button>
+          <div id="join-child-wrap" hidden>
+            <input id="join-child" type="text" autocomplete="off" placeholder="Child's name, e.g. Jack" />
+          </div>
         </div>
 
         <button type="submit" class="btn btn-primary">Join</button>
@@ -104,6 +110,28 @@
   </section>
 
   <!-- ============================================================
+       Sign in
+       ============================================================ -->
+  <section id="view-signin" class="view" hidden>
+    <div class="onb-wrap">
+      <div class="app-mark"><span class="app-mark-dot"></span><span class="app-mark-dot"></span><span class="app-mark-dot"></span></div>
+      <h1>Squad</h1>
+      <p class="muted">Sign in to manage your teams,<br>RSVPs, and events.</p>
+
+      <button id="btn-google-signin" class="btn btn-google" style="margin-top: 28px">
+        <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908C16.658 14.013 17.64 11.706 17.64 9.2z" fill="#4285F4"/>
+          <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+          <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+          <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+        </svg>
+        Sign in with Google
+      </button>
+      <p id="signin-error" class="error" hidden></p>
+    </div>
+  </section>
+
+  <!-- ============================================================
        Main app shell
        ============================================================ -->
   <section id="view-app" class="view" hidden>
@@ -122,6 +150,10 @@
     </header>
 
     <main id="tab-events" class="tab-panel">
+      <div id="announcements-feed" hidden>
+        <div class="section-label">Announcements</div>
+        <div id="announcements-list" class="announcements-list"></div>
+      </div>
       <div class="section-label">Up next</div>
       <div id="events-list" class="events-list">
         <div class="empty">Loading…</div>
@@ -134,21 +166,73 @@
     </main>
 
     <main id="tab-chat" class="tab-panel" hidden>
-      <div class="section-label">Team chat</div>
-      <div class="placeholder">
-        <p>Coming soon.</p>
-        <p class="muted">One team chat plus an announcements channel from the coach.</p>
+      <div id="chat-messages" class="chat-messages">
+        <div class="empty">Loading…</div>
+      </div>
+      <div class="chat-input-bar">
+        <button id="btn-chat-announce" class="btn-chat-announce" hidden title="Post announcement">📣</button>
+        <button id="btn-chat-photo" class="btn-chat-photo" title="Send photo" aria-label="Send photo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+        </button>
+        <input id="chat-photo-input" type="file" accept="image/*" style="display:none" />
+        <textarea id="chat-input" class="chat-input" placeholder="Message…" maxlength="500" autocomplete="off" rows="1"></textarea>
+        <button id="btn-chat-send" class="btn-chat-send" aria-label="Send">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
       </div>
     </main>
 
     <main id="tab-team" class="tab-panel" hidden>
       <div class="section-label">Squad</div>
       <div id="team-list" class="team-list"></div>
+      <button id="btn-add-player" class="btn btn-secondary" hidden style="margin:8px 16px 0;width:calc(100% - 32px)">+ Add player</button>
+
+      <div class="section-label" id="home-ground-label" hidden>Home ground</div>
+      <div id="home-ground-section" hidden style="padding:0 16px">
+        <div class="ac-wrap">
+          <input id="home-ground-input" class="field" type="text" placeholder="e.g. Parley Sports Club, Pitch 1" autocomplete="off" />
+          <div id="home-ground-ac" class="ac-dropdown" hidden></div>
+        </div>
+        <button id="btn-save-home-ground" class="btn btn-secondary" style="width:100%;margin-top:8px">Save home ground</button>
+      </div>
+
+      <div class="section-label" id="league-teams-label" hidden>League opponents</div>
+      <div id="league-teams-list" class="team-list" hidden></div>
+      <button id="btn-add-league-team" class="btn btn-secondary" hidden style="margin:8px 16px 0;width:calc(100% - 32px)">+ Add opponent</button>
 
       <div class="section-label" id="invites-label" hidden>Invite codes</div>
       <div id="invites-list" class="invites-list" hidden></div>
       <button id="btn-new-invite" class="btn btn-secondary" hidden>Generate invite code</button>
     </main>
+
+    <div id="modal-add-league-team" class="modal" hidden>
+      <div class="modal-backdrop" data-close-add-lt></div>
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <h2>Add opponent</h2>
+        <div class="form" style="display:flex;flex-direction:column;gap:12px">
+          <input id="add-lt-name" type="text" placeholder="e.g. Ferndown FC" autocomplete="off" />
+          <button id="btn-confirm-add-lt" class="btn btn-primary">Add</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modal-add-player" class="modal" hidden>
+      <div class="modal-backdrop" data-close-add-player></div>
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <h2>Add player</h2>
+        <div class="form" style="display:flex;flex-direction:column;gap:12px">
+          <input id="add-player-name" type="text" placeholder="Player's name, e.g. Jack Smith" autocomplete="off" />
+          <button id="btn-confirm-add-player" class="btn btn-primary">Add to squad</button>
+        </div>
+      </div>
+    </div>
 
     <main id="tab-me" class="tab-panel" hidden>
       <div class="section-label">Account</div>
@@ -184,9 +268,12 @@
         <span>Events</span>
       </button>
       <button class="tab" data-tab="chat" aria-label="Chat">
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M3 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H8l-4 3v-3a2 2 0 0 1-1-2V5z" />
-        </svg>
+        <div class="tab-icon-wrap">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M3 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H8l-4 3v-3a2 2 0 0 1-1-2V5z" />
+          </svg>
+          <span id="chat-tab-badge" class="tab-badge" hidden></span>
+        </div>
         <span>Chat</span>
       </button>
       <button class="tab" data-tab="team" aria-label="Team">
@@ -227,19 +314,39 @@
         <div class="seg" id="ne-type-seg"></div>
         <input type="hidden" id="ne-type" value="match" />
 
+        <div id="ne-match-config">
+          <label>Opponent</label>
+          <div id="ne-opponent-chips" class="opponent-chips"></div>
+          <div id="ne-opponent-other-wrap" hidden>
+            <input id="ne-opponent-other" type="text" placeholder="Opponent name…" autocomplete="off" />
+          </div>
+          <input type="hidden" id="ne-opponent" />
+
+          <label style="margin-top:10px">Home or away?</label>
+          <div class="seg" id="ne-homeaway-seg">
+            <button type="button" class="seg-btn active" data-ha="home">Home</button>
+            <button type="button" class="seg-btn" data-ha="away">Away</button>
+            <button type="button" class="seg-btn" data-ha="neutral">Neutral</button>
+          </div>
+          <input type="hidden" id="ne-homeaway" value="home" />
+        </div>
+
         <label for="ne-title">Title</label>
-        <input id="ne-title" type="text" placeholder="e.g. Parley v Ferndown" required />
+        <input id="ne-title" type="text" placeholder="e.g. vs Ferndown FC" required />
 
         <label for="ne-when">Date &amp; kick-off</label>
         <input id="ne-when" type="datetime-local" required />
 
         <label for="ne-location">Location</label>
-        <input id="ne-location" type="text" placeholder="e.g. Parley Rec, Pitch 2" />
+        <div class="ac-wrap">
+          <input id="ne-location" type="text" placeholder="e.g. Parley Rec, Pitch 2" autocomplete="off" />
+          <div id="ne-location-ac" class="ac-dropdown" hidden></div>
+        </div>
 
         <label for="ne-notes">Notes (optional)</label>
         <textarea id="ne-notes" rows="2" placeholder="Meet 15 min before, blue strip"></textarea>
 
-        <button type="submit" class="btn btn-primary">Create event</button>
+        <button type="submit" id="ne-submit" class="btn btn-primary">Create event</button>
       </form>
     </div>
     <div class="modal-backdrop" data-close-new="1"></div>
@@ -256,9 +363,80 @@
     <div class="modal-backdrop" data-close-switcher="1"></div>
   </div>
 
+  <div id="modal-invite" class="modal" hidden>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <button class="modal-close" data-close-invite="1" aria-label="Close">×</button>
+      <h2>Generate invite code</h2>
+      <p class="muted" style="margin: 4px 0 20px">Who is this code for?</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn btn-secondary invite-role-btn" data-role="parent">Parent</button>
+        <button class="btn btn-secondary invite-role-btn" data-role="player">Player</button>
+        <button class="btn btn-secondary invite-role-btn" data-role="coach">Coach</button>
+      </div>
+    </div>
+    <div class="modal-backdrop" data-close-invite="1"></div>
+  </div>
+
+  <!-- Player profile card (view) -->
+  <div id="modal-player" class="modal" hidden>
+    <div class="modal-backdrop" data-close-player></div>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div id="player-card-body"></div>
+    </div>
+  </div>
+
+  <!-- Player profile edit -->
+  <div id="modal-player-edit" class="modal" hidden>
+    <div class="modal-backdrop" data-close-player-edit></div>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <h2 id="pe-heading">Edit player</h2>
+      <div class="form" style="display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:8px">
+          <div id="pe-photo-wrap" class="player-photo-upload">
+            <img id="pe-photo-preview" class="player-photo-img" hidden />
+            <div id="pe-photo-placeholder" class="player-photo-placeholder"></div>
+            <div class="player-photo-overlay">📷</div>
+          </div>
+          <input id="pe-photo-input" type="file" accept="image/*" style="display:none" />
+          <span style="font-size:12px;color:var(--ink-3)">Tap photo to change</span>
+        </div>
+        <div style="display:flex;gap:12px">
+          <div style="flex:0 0 80px">
+            <label for="pe-number">Squad no.</label>
+            <input id="pe-number" type="number" min="1" max="99" placeholder="e.g. 9" />
+          </div>
+          <div style="flex:1">
+            <label for="pe-position">Position</label>
+            <input id="pe-position" type="text" placeholder="e.g. Striker, GK, CM" autocomplete="off" />
+          </div>
+        </div>
+        <label for="pe-nickname">Nickname</label>
+        <input id="pe-nickname" type="text" placeholder="e.g. Rocket" autocomplete="off" />
+        <div id="pe-phone-wrap" hidden>
+          <label for="pe-phone">Your phone number</label>
+          <input id="pe-phone" type="tel" placeholder="e.g. 07700 900000" autocomplete="tel" />
+        </div>
+        <div id="pe-medical-wrap" hidden>
+          <label for="pe-medical">Medical notes <span style="font-weight:400;text-transform:none;font-size:11px">(coach eyes only)</span></label>
+          <textarea id="pe-medical" rows="3" placeholder="Allergies, conditions, medications…"></textarea>
+        </div>
+        <input type="hidden" id="pe-player-uid" />
+        <button id="btn-save-player" class="btn btn-primary" style="margin-top:8px">Save</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast" hidden></div>
 
-  <script src="firebase-config.js"></script>
-  <script type="module" src="app.js"></script>
+  <div id="modal-lightbox" class="lightbox" hidden>
+    <img id="lightbox-img" class="lightbox-img" src="" alt="" />
+  </div>
+
+
+  <script src="firebase-config.js?v=5"></script>
+  <script type="module" src="app.js?v=5"></script>
 </body>
 </html>

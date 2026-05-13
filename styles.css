@@ -53,6 +53,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 html, body {
   margin: 0; padding: 0;
@@ -115,16 +116,14 @@ button { font-family: inherit; }
 .onb-wrap h1 { margin: 4px 0 0; font-size: 26px; font-weight: 600; }
 .onb-wrap > p { margin: 0 0 8px; text-align: center; }
 
-.onb-wrap .btn-secondary {
-  background: var(--surface);
-  border-color: var(--line-2);
-  color: var(--ink);
+.onb-wrap .btn-primary {
+  background: var(--acc);
+  color: #ffffff;
 }
-@media (prefers-color-scheme: dark) {
-  .onb-wrap .btn-secondary {
-    background: var(--surface-2);
-    border-color: var(--line-2);
-  }
+.onb-wrap .btn-secondary {
+  background: transparent;
+  border: 1.5px solid var(--line-2);
+  color: var(--ink);
 }
 
 .back-btn {
@@ -194,6 +193,13 @@ button { font-family: inherit; }
   border: 0.5px solid var(--line-2);
 }
 .btn-secondary:hover { background: var(--surface-2); }
+.btn-google {
+  background: var(--surface);
+  color: var(--ink);
+  border: 0.5px solid var(--line-2);
+  font-weight: 500;
+}
+.btn-google:hover { background: var(--surface-2); }
 
 /* ---------- Swatch grid (colour picker on create) ---------- */
 .swatch-grid {
@@ -229,6 +235,37 @@ button { font-family: inherit; }
   background: rgba(0, 0, 0, 0.7);
 }
 
+/* ---------- Location autocomplete ---------- */
+.ac-wrap { position: relative; }
+.ac-dropdown {
+  position: absolute;
+  top: calc(100% + 2px); left: 0; right: 0;
+  background: var(--surface);
+  border: 0.5px solid var(--line-2);
+  border-radius: var(--r-md);
+  z-index: 20;
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+.ac-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 0.5px solid var(--line);
+}
+.ac-item:last-child { border-bottom: none; }
+.ac-item:hover, .ac-item:active { background: var(--surface-2); }
+.ac-name { font-size: 14px; font-weight: 500; color: var(--ink); }
+.ac-detail { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+
+.location-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: rgba(128, 128, 128, 0.5);
+  text-underline-offset: 2px;
+}
+.location-link:active { opacity: 0.7; }
+
 /* ---------- Segmented control ---------- */
 .seg {
   display: flex; flex-wrap: wrap; gap: 4px;
@@ -252,6 +289,22 @@ button { font-family: inherit; }
   color: var(--ink);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
+
+/* ---------- Opponent chips ---------- */
+.opponent-chips {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;
+}
+.opponent-chip {
+  padding: 6px 14px; border-radius: 20px;
+  background: var(--surface-2); border: 1.5px solid var(--line);
+  font-size: 13px; font-weight: 500; color: var(--ink-2);
+  cursor: pointer; white-space: nowrap;
+}
+.opponent-chip.selected {
+  background: var(--pri); border-color: var(--pri);
+  color: var(--pri-ink); font-weight: 600;
+}
+.opponent-chip.other { border-style: dashed; }
 
 /* ---------- App shell ---------- */
 .app-header {
@@ -335,6 +388,8 @@ button { font-family: inherit; }
 .badge.match { background: var(--acc); color: #fff; }
 .badge.training { background: var(--surface-2); color: var(--ink-2); }
 .badge.social { background: var(--green-bg); color: var(--green); }
+.badge.home-away { background: #1d9e75; color: #fff; }
+.badge.home-away.away { background: var(--surface-2); color: var(--ink-2); }
 
 .event-title { font-size: 16px; font-weight: 600; margin: 0 0 2px; }
 .event-where, .event-when { color: var(--ink-2); font-size: 13px; }
@@ -366,6 +421,137 @@ button { font-family: inherit; }
 .dot.no { background: var(--red); }
 .dot.none { background: var(--ink-3); opacity: 0.5; }
 
+/* ---------- Chat ---------- */
+#tab-chat { padding: 0; min-height: 0; display: flex; flex-direction: column; }
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px calc(var(--tab-bar-height) + 60px + var(--safe-bottom) + 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chat-input-bar {
+  position: fixed;
+  bottom: calc(var(--tab-bar-height) + var(--safe-bottom));
+  left: 0; right: 0;
+  z-index: 9;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-top: 0.5px solid var(--line);
+}
+.chat-input {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: 16px;
+  padding: 9px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--ink);
+  outline: none;
+  min-width: 0;
+  resize: none;
+  overflow-y: hidden;
+  max-height: 120px;
+  line-height: 1.4;
+}
+.chat-input:focus { border-color: var(--pri); }
+.btn-chat-send {
+  width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--pri); color: var(--pri-ink);
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-chat-send:active { opacity: 0.8; }
+.btn-chat-photo {
+  width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: 50%;
+  background: transparent; color: var(--ink-3);
+  border: 1px solid var(--line); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-chat-photo:active { opacity: 0.7; }
+.btn-chat-photo:disabled { opacity: 0.4; cursor: default; }
+.btn-chat-announce {
+  width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--acc); color: #fff;
+  border: none; cursor: pointer;
+  font-size: 16px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-chat-announce:active { opacity: 0.8; }
+
+.chat-row { display: flex; flex-direction: column; max-width: 75%; }
+.chat-row.me { align-self: flex-end; align-items: flex-end; }
+.chat-row.them { align-self: flex-start; align-items: flex-start; }
+.chat-sender { font-size: 11px; color: var(--ink-3); margin-bottom: 3px; padding: 0 4px; }
+.chat-bubble {
+  padding: 8px 13px;
+  border-radius: 18px;
+  font-size: 14px; line-height: 1.45;
+  word-break: break-word;
+}
+.chat-row.me .chat-bubble {
+  background: var(--pri); color: var(--pri-ink);
+  border-bottom-right-radius: 4px;
+}
+.chat-row.them .chat-bubble {
+  background: var(--surface); color: var(--ink);
+  border: 0.5px solid var(--line);
+  border-bottom-left-radius: 4px;
+}
+.chat-time { font-size: 10px; color: var(--ink-3); margin-top: 3px; padding: 0 4px; }
+.chat-link { color: inherit; text-decoration: underline; word-break: break-all; }
+.chat-bubble-img { padding: 4px; background: transparent; border: none; }
+.chat-img { max-width: 220px; max-height: 280px; border-radius: 12px; display: block; cursor: pointer; }
+.chat-row.me .chat-img { margin-left: auto; }
+.lightbox {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.92);
+  display: flex; align-items: center; justify-content: center;
+  cursor: zoom-out;
+}
+.lightbox-img {
+  max-width: 96vw; max-height: 96vh;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+.chat-announcement {
+  background: var(--acc);
+  color: #fff;
+  border-radius: var(--r-lg);
+  padding: 12px 14px;
+  align-self: stretch;
+}
+.chat-ann-label { font-size: 11px; opacity: 0.85; font-weight: 600; margin-bottom: 4px; }
+.chat-ann-text { font-size: 14px; font-weight: 500; line-height: 1.4; }
+
+/* ---------- Announcement feed ---------- */
+.announcements-list { display: flex; flex-direction: column; gap: 8px; padding: 0 16px; }
+.announcement-card {
+  background: var(--surface);
+  border: 0.5px solid var(--line);
+  border-left: 3px solid var(--acc);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+}
+.ann-text { font-size: 14px; font-weight: 500; color: var(--ink); line-height: 1.4; }
+.ann-meta { font-size: 11px; color: var(--ink-3); margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+.badge-new {
+  display: inline-block; background: var(--acc); color: #fff;
+  font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 4px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+
 /* ---------- Team list ---------- */
 .team-list, .invites-list { padding: 0 16px; display: flex; flex-direction: column; gap: 6px; }
 .member, .team-row {
@@ -390,6 +576,125 @@ button { font-family: inherit; }
 .member-text, .team-text { flex: 1; min-width: 0; }
 .member-name, .team-name { font-weight: 500; font-size: 15px; }
 .member-role, .team-meta { font-size: 12px; color: var(--ink-2); }
+.member-sub { font-size: 12px; color: var(--ink-3); font-style: italic; }
+.squad-num { font-size: 12px; font-weight: 700; color: var(--pri); opacity: 0.8; }
+.member.clickable { cursor: pointer; }
+.member.clickable:hover { border-color: var(--pri); }
+.member-photo { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+
+/* ---------- Player profile card ---------- */
+.player-card-hero { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.player-card-photo {
+  width: 80px; height: 80px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+}
+.player-card-photo--placeholder {
+  width: 80px; height: 80px; border-radius: 50%;
+  background: var(--pri); color: var(--pri-ink);
+  font-size: 26px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.player-card-name { font-size: 22px; font-weight: 700; line-height: 1.2; }
+.player-card-nick { font-size: 14px; color: var(--ink-2); font-style: italic; margin-top: 2px; }
+.player-card-pos {
+  display: inline-block; margin-top: 6px;
+  font-size: 12px; font-weight: 600;
+  background: var(--acc); color: #fff;
+  padding: 2px 10px; border-radius: 20px;
+}
+.player-card-row {
+  display: flex; gap: 10px;
+  padding: 10px 0; border-top: 0.5px solid var(--line); font-size: 14px;
+}
+.player-card-label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--ink-3); min-width: 68px; flex-shrink: 0; padding-top: 1px;
+}
+.player-card-row--medical .player-card-label { color: var(--red); }
+.player-card-row--medical span { color: var(--red); }
+
+/* ---------- FIFA card ---------- */
+.fifa-card {
+  position: relative;
+  width: 220px; margin: 0 auto 4px;
+  aspect-ratio: 0.72;
+  border-radius: 12px;
+  background: linear-gradient(160deg, #c9a84c 0%, #f5e27c 30%, #b8860b 55%, #8b6914 80%, #5a4009 100%);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 14px 16px 16px;
+  overflow: hidden;
+}
+.fifa-card::before {
+  content: "";
+  position: absolute; inset: 3px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.2);
+  pointer-events: none;
+}
+.fifa-top {
+  width: 100%; display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 8px;
+}
+.fifa-top-left { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.fifa-number {
+  font-size: 32px; font-weight: 900; color: #1a1200; line-height: 1;
+  text-shadow: 0 1px 2px rgba(255,255,255,0.3);
+}
+.fifa-pos {
+  font-size: 12px; font-weight: 800; color: #1a1200;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  background: rgba(255,255,255,0.25); border-radius: 4px; padding: 2px 6px;
+}
+.fifa-team {
+  font-size: 10px; font-weight: 700; color: rgba(26,18,0,0.7);
+  text-transform: uppercase; letter-spacing: 0.05em; text-align: right; max-width: 90px;
+}
+.fifa-photo-wrap {
+  width: 120px; height: 120px; border-radius: 50%; margin: 4px 0 10px;
+  border: 3px solid rgba(255,255,255,0.4);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  overflow: hidden; flex-shrink: 0;
+}
+.fifa-photo { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fifa-photo--placeholder {
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px; font-weight: 800; color: rgba(255,255,255,0.9);
+}
+.fifa-divider {
+  width: 80%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+  margin-bottom: 10px;
+}
+.fifa-name {
+  font-size: 18px; font-weight: 900; color: #1a1200;
+  letter-spacing: 0.06em; text-align: center;
+  text-shadow: 0 1px 2px rgba(255,255,255,0.3);
+}
+.fifa-nick {
+  font-size: 12px; color: rgba(26,18,0,0.65);
+  font-style: italic; margin-top: 4px; text-align: center;
+}
+
+/* ---------- Player photo upload (edit modal) ---------- */
+.player-photo-upload {
+  position: relative; width: 88px; height: 88px;
+  border-radius: 50%; cursor: pointer; overflow: hidden;
+}
+.player-photo-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+.player-photo-placeholder {
+  width: 100%; height: 100%;
+  background: var(--surface-2); border: 2px dashed var(--line-2); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 700; color: var(--ink-3);
+}
+.player-photo-overlay {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.35);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; border-radius: 50%;
+}
 .role-pill {
   font-size: 10px; font-weight: 600;
   text-transform: uppercase; letter-spacing: 0.04em;
@@ -415,6 +720,40 @@ button { font-family: inherit; }
 }
 .invite-meta { font-size: 11px; color: var(--ink-3); }
 #btn-new-invite { margin: 12px 16px 0; width: calc(100% - 32px); }
+.btn-text-muted {
+  background: transparent; border: none; color: var(--ink-3);
+  font-size: 13px; cursor: pointer; padding: 4px 8px;
+}
+.btn-text-muted:hover { color: var(--ink-2); }
+.player-pick-list { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.player-pick-item {
+  text-align: left; background: var(--surface-2);
+  border: 1.5px solid var(--line); border-radius: var(--r-md);
+  padding: 10px 14px; font-size: 14px; color: var(--ink); cursor: pointer;
+}
+.player-pick-item.selected {
+  border-color: var(--pri); background: var(--pri);
+  color: var(--pri-ink); font-weight: 600;
+}
+.parent-avatars {
+  display: flex; align-items: center; gap: 4px;
+  margin-left: auto; flex-shrink: 0;
+}
+.parent-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--surface-2); border: 1.5px solid var(--line-2);
+  color: var(--ink-2); font-size: 10px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.parent-avatar.removable { cursor: pointer; }
+.parent-avatar.removable:hover { border-color: var(--red); color: var(--red); }
+.no-parent-hint { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+.btn-remove {
+  flex-shrink: 0;
+  background: transparent; border: 1px solid var(--red); color: var(--red);
+  border-radius: var(--r-sm); padding: 3px 10px; font-size: 12px; cursor: pointer;
+}
 .icon-btn {
   background: transparent; border: none; color: inherit;
   padding: 6px; border-radius: var(--r-sm);
@@ -460,7 +799,7 @@ button { font-family: inherit; }
   z-index: 5;
 }
 .tab {
-  flex: 1;
+  flex: 1; position: relative;
   background: transparent; border: none;
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 8px 4px;
@@ -469,11 +808,26 @@ button { font-family: inherit; }
   cursor: pointer;
 }
 .tab svg { width: 22px; height: 22px; }
-.tab.active { color: var(--pri); }
-@media (prefers-color-scheme: dark) {
-  .tab.active { color: var(--pri-ink); }
+.tab svg, .tab > span { position: relative; z-index: 1; }
+.tab.active { color: var(--pri-ink); }
+.tab.active::before {
+  content: '';
+  position: absolute;
+  top: 5px; left: 8px; right: 8px; height: 30px;
+  background: var(--pri);
+  border-radius: 10px;
+  z-index: 0;
 }
 .tab:active { transform: scale(0.95); }
+.tab-icon-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
+.tab-badge {
+  position: absolute; top: -5px; right: -8px;
+  min-width: 16px; height: 16px; padding: 0 3px;
+  background: var(--red); color: #fff;
+  border-radius: 8px; font-size: 9px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2;
+}
 
 /* ---------- FAB ---------- */
 .fab {
@@ -505,6 +859,7 @@ button { font-family: inherit; }
 }
 .modal-sheet {
   position: relative;
+  z-index: 1;
   width: 100%;
   max-width: 480px;
   max-height: 90vh;
@@ -578,10 +933,11 @@ button { font-family: inherit; }
 @keyframes toastIn { from { transform: translate(-50%, 10px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 @keyframes toastOut { to { transform: translate(-50%, 10px); opacity: 0; } }
 
+
 @media (min-width: 600px) {
   body { background: #ddd9cf; }
   @media (prefers-color-scheme: dark) { body { background: #0c0c0e; } }
   .view { max-width: 480px; margin: 0 auto; background: var(--bg); min-height: 100vh; position: relative; }
-  .tab-bar, .fab { max-width: 480px; left: 50%; transform: translateX(-50%); right: auto; }
+  .tab-bar, .fab, .chat-input-bar { max-width: 480px; left: 50%; transform: translateX(-50%); right: auto; }
   .fab { left: auto; transform: none; right: calc(50% - 240px + 20px); }
 }
