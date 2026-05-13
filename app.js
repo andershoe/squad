@@ -532,6 +532,7 @@ function detachAll() {
 async function enterTeam(teamId) {
   detachAll();
   activeTeamId = teamId;
+  lastReadTs = 0;
 
   const metaSnap = await get(ref(db, `teams/${teamId}/meta`));
   if (!metaSnap.exists()) {
@@ -602,6 +603,7 @@ async function enterTeam(teamId) {
   subscribeEvents();
   subscribeTeam();
   subscribeChat();
+  subscribeLastRead();
   subscribeLeagueTeams();
   if (isCoach) subscribeInvites();
 
@@ -843,6 +845,7 @@ let membersCache = {};
 let leagueTeamsCache = {};
 let locationPicked = null;
 let homeGroundPicked = null;
+let lastReadTs = 0;
 
 function subscribeEvents() {
   const evRef = ref(db, `teams/${activeTeamId}/events`);
@@ -1760,18 +1763,26 @@ function renderChat(msgs) {
   }
 }
 
-function getLastRead() {
-  return parseInt(localStorage.getItem(`squad.chat.read.${activeTeamId}`) || "0");
+function subscribeLastRead() {
+  const lrRef = ref(db, `users/${user.uid}/chatRead/${activeTeamId}`);
+  const unsub = onValue(lrRef, (snap) => {
+    lastReadTs = snap.val() || 0;
+    updateChatBadge();
+    renderAnnouncements();
+  });
+  subscriptions.push(unsub);
 }
 
 function markRead() {
-  localStorage.setItem(`squad.chat.read.${activeTeamId}`, Date.now());
+  const ts = Date.now();
+  lastReadTs = ts;
+  set(ref(db, `users/${user.uid}/chatRead/${activeTeamId}`), ts);
   updateChatBadge();
   renderAnnouncements();
 }
 
 function updateChatBadge() {
-  const lastRead = getLastRead();
+  const lastRead = lastReadTs;
   const unread = messagesCache.filter((m) => m.sentAt > lastRead).length;
   const badge = $("chat-tab-badge");
   if (unread > 0) {
@@ -1788,7 +1799,7 @@ function renderAnnouncements() {
     $("announcements-feed").hidden = true;
     return;
   }
-  const lastRead = getLastRead();
+  const lastRead = lastReadTs;
   $("announcements-feed").hidden = false;
   $("announcements-list").innerHTML = announcements.map((a) => {
     const isNew = a.sentAt > lastRead;
