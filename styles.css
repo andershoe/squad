@@ -813,9 +813,9 @@ button { font-family: inherit; }
 .tab.active::before {
   content: '';
   position: absolute;
-  top: 5px; left: 8px; right: 8px; height: 30px;
+  inset: 5px 8px;
   background: var(--pri);
-  border-radius: 10px;
+  border-radius: 12px;
   z-index: 0;
 }
 .tab:active { transform: scale(0.95); }
