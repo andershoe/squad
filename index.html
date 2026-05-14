@@ -154,10 +154,18 @@
         <div class="section-label">Announcements</div>
         <div id="announcements-list" class="announcements-list"></div>
       </div>
+      <div id="polls-section" hidden>
+        <div class="section-label-row">
+          <div class="section-label" style="margin:0">Availability</div>
+          <button id="btn-new-poll" class="btn-icon" hidden>+ Poll</button>
+        </div>
+        <div id="polls-list"></div>
+      </div>
       <div class="section-label">Up next</div>
       <div id="events-list" class="events-list">
         <div class="empty">Loading…</div>
       </div>
+
       <button id="btn-new-event" class="fab" hidden aria-label="New event">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="10" y1="4" x2="10" y2="16" /><line x1="4" y1="10" x2="16" y2="10" />
@@ -214,11 +222,33 @@
       <div class="modal-backdrop" data-close-add-lt></div>
       <div class="modal-sheet">
         <div class="modal-handle"></div>
-        <h2>Add opponent</h2>
-        <div class="form" style="display:flex;flex-direction:column;gap:12px">
+        <h2 id="add-lt-heading">Add opponent</h2>
+        <div class="form">
+          <label for="add-lt-name">Club name</label>
           <input id="add-lt-name" type="text" placeholder="e.g. Ferndown FC" autocomplete="off" />
-          <button id="btn-confirm-add-lt" class="btn btn-primary">Add</button>
+          <label for="add-lt-ground">Home ground (optional)</label>
+          <div class="ac-wrap">
+            <input id="add-lt-ground" type="text" placeholder="Search for their ground…" autocomplete="off" />
+            <div id="add-lt-ground-ac" class="ac-dropdown" hidden></div>
+          </div>
+          <button id="btn-confirm-add-lt" class="btn btn-primary">Add opponent</button>
         </div>
+      </div>
+    </div>
+
+    <div id="modal-new-poll" class="modal" hidden>
+      <div class="modal-backdrop" data-close-new-poll></div>
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <h2>Poll availability</h2>
+        <form id="form-new-poll" class="form">
+          <label for="np-when">Date &amp; time</label>
+          <input id="np-when" type="datetime-local" required />
+          <label for="np-notes">Context (optional)</label>
+          <input id="np-notes" type="text" placeholder="e.g. Away match vs Bournemouth FC" autocomplete="off" />
+          <button type="submit" class="btn btn-primary" style="margin-top:16px">Send poll</button>
+        </form>
+        <button class="btn btn-secondary" data-close-new-poll style="margin-top:8px">Cancel</button>
       </div>
     </div>
 
@@ -261,10 +291,13 @@
 
     <nav class="tab-bar" role="tablist">
       <button class="tab active" data-tab="events" aria-label="Events">
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="3" y="4" width="14" height="13" rx="2" /><line x1="3" y1="8" x2="17" y2="8" />
-          <line x1="7" y1="2" x2="7" y2="5" /><line x1="13" y1="2" x2="13" y2="5" />
-        </svg>
+        <div class="tab-icon-wrap">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="4" width="14" height="13" rx="2" /><line x1="3" y1="8" x2="17" y2="8" />
+            <line x1="7" y1="2" x2="7" y2="5" /><line x1="13" y1="2" x2="13" y2="5" />
+          </svg>
+          <span id="events-tab-badge" class="tab-badge" hidden></span>
+        </div>
         <span>Events</span>
       </button>
       <button class="tab" data-tab="chat" aria-label="Chat">

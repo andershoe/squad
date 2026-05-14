@@ -576,6 +576,7 @@ async function enterTeam(teamId) {
   // Coach-only UI
   const isCoach = myMember.role === "coach";
   $("btn-new-event").hidden = !isCoach;
+  $("btn-new-poll").hidden = !isCoach;
   $("btn-new-invite").hidden = !isCoach;
   $("invites-label").hidden = !isCoach;
   $("invites-list").hidden = !isCoach;
@@ -604,7 +605,9 @@ async function enterTeam(teamId) {
   subscribeTeam();
   subscribeChat();
   subscribeLastRead();
+  subscribeEventsRead();
   subscribeLeagueTeams();
+  subscribePolls();
   if (isCoach) subscribeInvites();
 
   // Render the My-Teams list on the Me tab
@@ -700,8 +703,10 @@ function bindAppActions() {
   $("modal-close").addEventListener("click", () => $("modal-event").hidden = true);
   $("modal-event").querySelector(".modal-backdrop").addEventListener("click", () => $("modal-event").hidden = true);
 
-  // Chat
+  // Chat — prevent focus loss from textarea when tapping send/announce buttons
+  $("btn-chat-send").addEventListener("pointerdown", (e) => e.preventDefault());
   $("btn-chat-send").addEventListener("click", () => sendChatMessage("message"));
+  $("btn-chat-announce").addEventListener("pointerdown", (e) => e.preventDefault());
   $("btn-chat-announce").addEventListener("click", () => sendChatMessage("announcement"));
   $("chat-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChatMessage("message"); }
@@ -723,10 +728,12 @@ function bindAppActions() {
   document.querySelectorAll(".tab-bar .tab").forEach((btn) => {
     if (btn.dataset.tab === "chat") {
       btn.addEventListener("click", () => {
-        const list = $("chat-messages");
-        setTimeout(() => { list.scrollTop = list.scrollHeight; }, 0);
+        scrollChatToBottom();
         markRead();
       });
+    }
+    if (btn.dataset.tab === "events") {
+      btn.addEventListener("click", () => markEventsRead());
     }
   });
 
@@ -768,7 +775,12 @@ function bindAppActions() {
 
   // League teams
   $("btn-add-league-team").addEventListener("click", () => {
+    editingLtId = null;
+    ltGroundPicked = null;
+    $("add-lt-heading").textContent = "Add opponent";
+    $("btn-confirm-add-lt").textContent = "Add opponent";
     $("add-lt-name").value = "";
+    $("add-lt-ground").value = "";
     $("modal-add-league-team").hidden = false;
     $("add-lt-name").focus();
   });
@@ -776,17 +788,32 @@ function bindAppActions() {
     el.addEventListener("click", () => $("modal-add-league-team").hidden = true)
   );
   $("add-lt-name").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") { e.preventDefault(); confirmAddLeagueTeam(); }
+    if (e.key === "Enter") { e.preventDefault(); $("add-lt-ground").focus(); }
   });
   $("btn-confirm-add-lt").addEventListener("click", confirmAddLeagueTeam);
+  setupLtGroundAutocomplete();
 
   async function confirmAddLeagueTeam() {
     const name = $("add-lt-name").value.trim();
     if (!name) return;
     $("btn-confirm-add-lt").disabled = true;
     try {
-      await push(ref(db, `teams/${activeTeamId}/leagueTeams`), { name });
+      const groundVal = $("add-lt-ground").value.trim();
+      const data = {
+        name,
+        ground: groundVal || null,
+        groundPlaceId: (groundVal && ltGroundPicked?.placeId) || null,
+        groundLat: (groundVal && ltGroundPicked?.lat) || null,
+        groundLon: (groundVal && ltGroundPicked?.lon) || null,
+      };
+      if (editingLtId) {
+        await update(ref(db, `teams/${activeTeamId}/leagueTeams/${editingLtId}`), data);
+      } else {
+        await push(ref(db, `teams/${activeTeamId}/leagueTeams`), data);
+      }
       $("modal-add-league-team").hidden = true;
+      ltGroundPicked = null;
+      editingLtId = null;
     } catch { toast("Couldn't save"); }
     finally { $("btn-confirm-add-lt").disabled = false; }
   }
@@ -833,6 +860,183 @@ function bindAppActions() {
       onGenerateInvite(btn.dataset.role);
     })
   );
+
+  // Availability polls
+  $("btn-new-poll").addEventListener("click", () => {
+    const d = new Date();
+    d.setDate(d.getDate() + ((7 - d.getDay()) % 7 || 7));
+    d.setHours(10, 0, 0, 0);
+    $("np-when").value = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    $("np-notes").value = "";
+    $("modal-new-poll").hidden = false;
+  });
+  document.querySelectorAll("[data-close-new-poll]").forEach((el) =>
+    el.addEventListener("click", () => $("modal-new-poll").hidden = true)
+  );
+  $("form-new-poll").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await push(ref(db, `teams/${activeTeamId}/polls`), {
+        when: new Date($("np-when").value).getTime(),
+        notes: $("np-notes").value.trim() || null,
+        createdBy: user.uid,
+        createdAt: Date.now(),
+        closed: false,
+      });
+      $("modal-new-poll").hidden = true;
+      toast("Poll sent to squad");
+    } catch { toast("Couldn't create poll"); }
+  });
+}
+
+// =====================================================================
+// Availability polls
+// =====================================================================
+
+function subscribePolls() {
+  pollsCache = {};
+  const pRef = ref(db, `teams/${activeTeamId}/polls`);
+  onValue(pRef, (snap) => {
+    pollsCache = snap.val() || {};
+    renderPolls();
+    updateEventsBadge();
+    if (!$("tab-events").hidden) markEventsRead();
+  });
+  subscriptions.push(pRef);
+}
+
+function renderPolls() {
+  const isCoach = myMember.role === "coach";
+  const open = Object.entries(pollsCache)
+    .filter(([, p]) => !p.closed)
+    .map(([id, p]) => ({ id, ...p }))
+    .sort((a, b) => a.when - b.when);
+
+  $("polls-section").hidden = !isCoach && open.length === 0;
+  $("btn-new-poll").hidden = !isCoach;
+
+  $("polls-list").innerHTML = open.length
+    ? open.map(renderPollCard).join("")
+    : isCoach ? '<div class="empty" style="padding:0 0 12px">No open polls.</div>' : "";
+
+  $("polls-list").querySelectorAll(".poll-card").forEach((card) => {
+    const id = card.dataset.id;
+    card.querySelectorAll(".rsvp-btn").forEach((btn) =>
+      btn.addEventListener("click", (ev) => { ev.stopPropagation(); setMyPollRsvp(id, btn.dataset.status); })
+    );
+    card.addEventListener("click", () => openPollDetail(id));
+  });
+}
+
+function renderPollCard(p) {
+  const when = fmtDate(p.when);
+  const counts = countRsvps(p.rsvps);
+  const myStatus = getMyPollRsvp(p);
+  return `
+    <article class="event-card poll-card" data-id="${p.id}">
+      <div class="event-meta">
+        <span class="badge poll">Poll</span>
+        <span>${when.day} ${when.date} · ${when.time}</span>
+      </div>
+      ${p.notes ? `<h3 class="event-title">${escapeHtml(p.notes)}</h3>` : ""}
+      ${renderRsvpRow(myStatus)}
+      <div class="counts">
+        <span><span class="dot yes"></span>${counts.yes} yes</span>
+        <span><span class="dot maybe"></span>${counts.maybe} maybe</span>
+        <span><span class="dot no"></span>${counts.no} out</span>
+        ${counts.none > 0 ? `<span><span class="dot none"></span>${counts.none} pending</span>` : ""}
+      </div>
+    </article>
+  `;
+}
+
+function getMyPollRsvp(poll) {
+  const playerUid = myMember.role === "parent" ? myMember.childOf : user.uid;
+  return poll.rsvps?.[playerUid]?.status || null;
+}
+
+async function setMyPollRsvp(pollId, status) {
+  const playerUid = myMember.role === "parent" ? myMember.childOf : user.uid;
+  await set(ref(db, `teams/${activeTeamId}/polls/${pollId}/rsvps/${playerUid}`), {
+    status, respondedBy: user.uid, respondedAt: Date.now(),
+  });
+  toast(status === "yes" ? "You're in" : status === "maybe" ? "Marked maybe" : "Marked out");
+}
+
+function openPollDetail(pollId) {
+  const p = { id: pollId, ...pollsCache[pollId] };
+  if (!p.when) return;
+  const when = fmtDate(p.when);
+  const isCoach = myMember.role === "coach";
+
+  const players = Object.entries(playersCache).sort((a, b) => a[1].name.localeCompare(b[1].name));
+  const rsvpLines = players.map(([uid, player]) => {
+    const r = p.rsvps?.[uid];
+    const status = r?.status || "none";
+    const label = { yes: "In", maybe: "Maybe", no: "Out", none: "—" }[status];
+    const coachCtl = isCoach
+      ? `<button class="rsvp-btn" style="flex:0;padding:4px 8px;font-size:11px" data-coach-poll-rsvp="${uid}">edit</button>`
+      : "";
+    return `
+      <div class="rsvp-line">
+        <div class="avatar">${initials(player.name)}</div>
+        <div class="name">${escapeHtml(player.name)}</div>
+        <div class="status ${status}">${label}</div>
+        ${coachCtl}
+      </div>`;
+  }).join("");
+
+  const myStatus = p.rsvps?.[user.uid]?.status || null;
+  const coachSelfRsvp = isCoach ? `
+    <div class="section-label" style="margin-left:0">Your availability</div>
+    <div class="rsvp-row" style="margin-bottom:16px">
+      <button class="rsvp-btn ${myStatus === "no" ? "selected no" : ""}" data-self-poll-rsvp="no">Out</button>
+      <button class="rsvp-btn ${myStatus === "maybe" ? "selected maybe" : ""}" data-self-poll-rsvp="maybe">Maybe</button>
+      <button class="rsvp-btn ${myStatus === "yes" ? "selected yes" : ""}" data-self-poll-rsvp="yes">In</button>
+    </div>` : "";
+
+  $("modal-body").innerHTML = `
+    <div class="event-meta" style="margin-bottom:8px">
+      <span class="badge poll">Poll</span>
+      <span>${when.day} ${when.date} · ${when.time}</span>
+    </div>
+    ${p.notes ? `<p style="margin:0 0 16px;font-size:14px;color:var(--ink-2)">${escapeHtml(p.notes)}</p>` : ""}
+    ${coachSelfRsvp}
+    <div class="section-label" style="margin-left:0">Responses</div>
+    <div class="rsvp-list">${rsvpLines}</div>
+    ${isCoach ? `<button id="btn-close-poll" class="btn btn-secondary" style="margin-top:16px;width:100%">Close poll</button>` : ""}
+  `;
+
+  if (isCoach) {
+    $("modal-body").querySelectorAll("[data-coach-poll-rsvp]").forEach((btn) => {
+      btn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        const uid = btn.dataset.coachPollRsvp;
+        const cur = pollsCache[pollId]?.rsvps?.[uid]?.status || "none";
+        const next = { none: "yes", yes: "maybe", maybe: "no", no: "none" }[cur];
+        if (next === "none") {
+          remove(ref(db, `teams/${activeTeamId}/polls/${pollId}/rsvps/${uid}`));
+        } else {
+          set(ref(db, `teams/${activeTeamId}/polls/${pollId}/rsvps/${uid}`), {
+            status: next, respondedBy: user.uid, respondedAt: Date.now(),
+          });
+        }
+      });
+    });
+    $("modal-body").querySelectorAll("[data-self-poll-rsvp]").forEach((btn) =>
+      btn.addEventListener("click", () => setMyPollRsvp(pollId, btn.dataset.selfPollRsvp))
+    );
+    const closeBtn = $("btn-close-poll");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", async () => {
+        await update(ref(db, `teams/${activeTeamId}/polls/${pollId}`), { closed: true });
+        $("modal-event").hidden = true;
+        toast("Poll closed");
+      });
+    }
+  }
+
+  $("modal-event").hidden = false;
 }
 
 // =====================================================================
@@ -843,15 +1047,22 @@ let eventsCache = {};
 let playersCache = {};
 let membersCache = {};
 let leagueTeamsCache = {};
+let pollsCache = {};
 let locationPicked = null;
 let homeGroundPicked = null;
+let ltGroundPicked = null;
+let editingLtId = null;
 let lastReadTs = 0;
+let lastEventsReadTs = 0;
+let pendingScroll = false;
 
 function subscribeEvents() {
   const evRef = ref(db, `teams/${activeTeamId}/events`);
   onValue(evRef, (snap) => {
     eventsCache = snap.val() || {};
     renderEvents();
+    updateEventsBadge();
+    if (!$("tab-events").hidden) markEventsRead();
   });
   subscriptions.push(evRef);
 
@@ -936,13 +1147,21 @@ function setupLocationAutocomplete() {
           const placeId = el.dataset.placeId;
           const idx = parseInt(el.dataset.index);
           const p = suggestions[idx]?.placePrediction;
-          input.value = p?.structuredFormat?.mainText?.text || input.value;
+          const mainText = p?.structuredFormat?.mainText?.text || "";
+          const secondaryText = p?.structuredFormat?.secondaryText?.text || "";
+          const suggestionText = [mainText, secondaryText].filter(Boolean).join(", ");
+          input.value = mainText || input.value;
           dropdown.hidden = true;
 
-          // Fetch coordinates + reset session token (session ends on selection)
+          // Fetch coordinates + full address + reset session token (session ends on selection)
           sessionToken = crypto.randomUUID();
           const loc = await fetchPlaceLocation(placeId, key);
-          if (loc) locationPicked = { lat: loc.latitude, lon: loc.longitude, placeId };
+          if (loc) {
+            input.value = buildLocationLabel(mainText, loc.formattedAddress) || suggestionText;
+            locationPicked = { lat: loc.latitude, lon: loc.longitude, placeId };
+          } else if (suggestionText) {
+            input.value = suggestionText;
+          }
         });
       });
 
@@ -992,11 +1211,19 @@ function setupHomeGroundAutocomplete() {
             const placeId = el.dataset.placeId;
             const idx = parseInt(el.dataset.index);
             const p = suggestions[idx]?.placePrediction;
-            input.value = p?.structuredFormat?.mainText?.text || input.value;
+            const mainText = p?.structuredFormat?.mainText?.text || "";
+            const secondaryText = p?.structuredFormat?.secondaryText?.text || "";
+            const suggestionText = [mainText, secondaryText].filter(Boolean).join(", ");
+            input.value = mainText || input.value;
             dropdown.hidden = true;
             sessionToken = crypto.randomUUID();
             const loc = await fetchPlaceLocation(placeId, key);
-            if (loc) homeGroundPicked = { lat: loc.latitude, lon: loc.longitude, placeId };
+            if (loc) {
+              input.value = buildLocationLabel(mainText, loc.formattedAddress) || suggestionText;
+              homeGroundPicked = { lat: loc.latitude, lon: loc.longitude, placeId };
+            } else if (suggestionText) {
+              input.value = suggestionText;
+            }
           });
         });
         dropdown.hidden = false;
@@ -1006,16 +1233,93 @@ function setupHomeGroundAutocomplete() {
   input.addEventListener("blur", () => setTimeout(() => { dropdown.hidden = true; }, 150));
 }
 
+function setupLtGroundAutocomplete() {
+  const input = $("add-lt-ground");
+  const dropdown = $("add-lt-ground-ac");
+  let debounceTimer = null;
+  let sessionToken = crypto.randomUUID();
+
+  input.addEventListener("input", () => {
+    ltGroundPicked = null;
+    const q = input.value.trim();
+    clearTimeout(debounceTimer);
+    if (q.length < 2) { dropdown.hidden = true; return; }
+    debounceTimer = setTimeout(async () => {
+      const key = window.MAPS_API_KEY;
+      if (!key || key.startsWith("REPLACE")) { dropdown.hidden = true; return; }
+      try {
+        const res = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Goog-Api-Key": key,
+            "X-Goog-FieldMask": "suggestions.placePrediction.placeId,suggestions.placePrediction.structuredFormat" },
+          body: JSON.stringify({ input: q, includedRegionCodes: ["gb"], sessionToken }),
+        });
+        const data = await res.json();
+        const suggestions = data.suggestions || [];
+        if (!suggestions.length) { dropdown.hidden = true; return; }
+        dropdown.innerHTML = suggestions.map((s, i) => {
+          const p = s.placePrediction;
+          const main = p.structuredFormat?.mainText?.text || "";
+          const secondary = p.structuredFormat?.secondaryText?.text || "";
+          return `<div class="ac-item" data-index="${i}" data-place-id="${escapeHtml(p.placeId)}">
+            <div class="ac-name">${escapeHtml(main)}</div>
+            ${secondary ? `<div class="ac-detail">${escapeHtml(secondary)}</div>` : ""}
+          </div>`;
+        }).join("");
+        dropdown.querySelectorAll(".ac-item").forEach((el) => {
+          el.addEventListener("mousedown", async (ev) => {
+            ev.preventDefault();
+            const placeId = el.dataset.placeId;
+            const idx = parseInt(el.dataset.index);
+            const p = suggestions[idx]?.placePrediction;
+            const mainText = p?.structuredFormat?.mainText?.text || "";
+            const secondaryText = p?.structuredFormat?.secondaryText?.text || "";
+            const suggestionText = [mainText, secondaryText].filter(Boolean).join(", ");
+            input.value = mainText || input.value;
+            dropdown.hidden = true;
+            sessionToken = crypto.randomUUID();
+            const loc = await fetchPlaceLocation(placeId, key);
+            if (loc) {
+              input.value = buildLocationLabel(mainText, loc.formattedAddress) || suggestionText;
+              ltGroundPicked = { lat: loc.latitude, lon: loc.longitude, placeId };
+            } else if (suggestionText) {
+              input.value = suggestionText;
+            }
+          });
+        });
+        dropdown.hidden = false;
+      } catch { dropdown.hidden = true; }
+    }, 350);
+  });
+  input.addEventListener("blur", () => setTimeout(() => { dropdown.hidden = true; }, 150));
+}
+
+function buildLocationLabel(mainText, formattedAddress) {
+  if (!formattedAddress) return mainText || "";
+  // Strip any leading Plus Code (e.g. "V49M+2W, ")
+  const stripped = formattedAddress
+    .replace(/\b[A-Z0-9]{4,8}\+[A-Z0-9]{2,3},?\s*/i, "")
+    .replace(/^,\s*/, "")
+    .trim();
+  // Prepend place name if it isn't already present in the address
+  // (schools/parks often have addresses like "Alder Road, BH12 4AU" with no name)
+  if (mainText && !stripped.toLowerCase().includes(mainText.toLowerCase())) {
+    return `${mainText}, ${stripped}`;
+  }
+  return stripped;
+}
+
 async function fetchPlaceLocation(placeId, key) {
   try {
     const res = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
       headers: {
         "X-Goog-Api-Key": key,
-        "X-Goog-FieldMask": "location",
+        "X-Goog-FieldMask": "location,formattedAddress",
       },
     });
     const data = await res.json();
-    return data.location || null;
+    if (!data.location) return null;
+    return { latitude: data.location.latitude, longitude: data.location.longitude, formattedAddress: data.formattedAddress || null };
   } catch {
     return null;
   }
@@ -1272,11 +1576,11 @@ function buildOpponentChips(selectedOpponent) {
   const chips = $("ne-opponent-chips");
   const entries = Object.entries(leagueTeamsCache).sort((a, b) => a[1].name.localeCompare(b[1].name));
   const allChips = [
-    ...entries.map(([, t]) => ({ label: t.name, value: t.name })),
+    ...entries.map(([id, t]) => ({ label: t.name, value: t.name, id })),
     { label: "Other…", value: "__other__", other: true },
   ];
   chips.innerHTML = allChips.map((c) =>
-    `<button type="button" class="opponent-chip${c.other ? " other" : ""}${c.value === selectedOpponent ? " selected" : ""}" data-val="${escapeHtml(c.value)}">${escapeHtml(c.label)}</button>`
+    `<button type="button" class="opponent-chip${c.other ? " other" : ""}${c.value === selectedOpponent ? " selected" : ""}" data-val="${escapeHtml(c.value)}"${c.id ? ` data-lt-id="${c.id}"` : ""}>${escapeHtml(c.label)}</button>`
   ).join("");
 
   chips.querySelectorAll(".opponent-chip").forEach((btn) => {
@@ -1299,6 +1603,16 @@ function buildOpponentChips(selectedOpponent) {
         if ($("ne-title").value === "" || $("ne-title").value.startsWith("vs ")) {
           $("ne-title").value = `vs ${btn.dataset.val}`;
         }
+        // Auto-fill location with opponent's ground when Away is selected
+        if ($("ne-homeaway").value === "away" && btn.dataset.ltId) {
+          const lt = leagueTeamsCache[btn.dataset.ltId];
+          if (lt?.ground) {
+            $("ne-location").value = lt.ground;
+            locationPicked = lt.groundLat
+              ? { lat: lt.groundLat, lon: lt.groundLon, placeId: lt.groundPlaceId || null }
+              : null;
+          }
+        }
       }
     });
   });
@@ -1312,8 +1626,20 @@ function applyHomeAwayLocation(ha) {
       placeId: teamMeta.homeGroundPlaceId || null,
     } : null;
   } else if (ha === "away") {
-    $("ne-location").value = "";
-    locationPicked = null;
+    // Try to fill from the currently selected opponent's ground
+    const opponentName = $("ne-opponent").value;
+    const lt = opponentName
+      ? Object.values(leagueTeamsCache).find((t) => t.name === opponentName)
+      : null;
+    if (lt?.ground) {
+      $("ne-location").value = lt.ground;
+      locationPicked = lt.groundLat
+        ? { lat: lt.groundLat, lon: lt.groundLon, placeId: lt.groundPlaceId || null }
+        : null;
+    } else {
+      $("ne-location").value = "";
+      locationPicked = null;
+    }
   }
 }
 
@@ -1395,6 +1721,7 @@ function renderTeam() {
     html.push('<div class="empty">No players yet.</div>');
   } else {
     html.push(players.map(([playerUid, p]) => {
+      const isMyChild = !isCoach && myMember.childOf === playerUid;
       const parents = Object.entries(membersCache).filter(([_, m]) => m.childOf === playerUid);
       const parentAvatars = parents.length
         ? parents.map(([pUid, m]) =>
@@ -1405,11 +1732,12 @@ function renderTeam() {
         ? `<img src="${escapeHtml(p.photoUrl)}" class="member-photo" />`
         : `<div class="avatar">${initials(p.name)}</div>`;
       return `
-        <div class="member clickable" data-player-uid="${playerUid}">
+        <div class="member clickable${isMyChild ? " my-child" : ""}" data-player-uid="${playerUid}">
           ${photoEl}
           <div class="member-text">
             <div class="member-name">${p.squadNumber ? `<span class="squad-num">#${p.squadNumber}</span> ` : ""}${escapeHtml(p.name)}</div>
             ${p.nickname ? `<div class="member-sub">"${escapeHtml(p.nickname)}"</div>` : ""}
+            ${isMyChild ? `<div class="my-child-tag">Your child</div>` : ""}
           </div>
           <div class="parent-avatars">${parentAvatars}</div>
           ${removeBtn(playerUid, true)}
@@ -1459,8 +1787,8 @@ function openPlayerCard(playerUid) {
     ? `<img src="${escapeHtml(player.photoUrl)}" class="player-card-photo" />`
     : `<div class="player-card-photo player-card-photo--placeholder">${initials(player.name)}</div>`;
 
-  if (isMyChild && !isCoach) {
-    // FIFA-style card for parents viewing their child
+  if (!isCoach) {
+    // FIFA-style card for parents/players viewing any player
     $("player-card-body").innerHTML = renderFifaCard(player, playerUid, canEdit);
   } else {
     // Info card for coaches and others
@@ -1680,12 +2008,32 @@ function renderLeagueTeams() {
   const entries = Object.entries(leagueTeamsCache).sort((a, b) => a[1].name.localeCompare(b[1].name));
   $("league-teams-list").innerHTML = entries.length ? entries.map(([id, t]) => `
     <div class="member">
-      <div class="member-text"><div class="member-name">${escapeHtml(t.name)}</div></div>
-      ${isCoach ? `<button class="btn-remove" data-lt-id="${id}">Remove</button>` : ""}
+      <div class="member-text">
+        <div class="member-name">${escapeHtml(t.name)}</div>
+        ${t.ground ? `<div class="member-sub">${escapeHtml(t.ground)}</div>` : ""}
+      </div>
+      ${isCoach ? `
+        <button class="btn-icon" data-lt-edit="${id}" title="Edit">✎</button>
+        <button class="btn-remove" data-lt-id="${id}">Remove</button>
+      ` : ""}
     </div>
   `).join("") : '<div class="empty" style="padding:0 0 8px">No league opponents added yet.</div>';
 
   if (isCoach) {
+    $("league-teams-list").querySelectorAll("[data-lt-edit]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.ltEdit;
+        const t = leagueTeamsCache[id];
+        if (!t) return;
+        editingLtId = id;
+        ltGroundPicked = t.groundLat ? { lat: t.groundLat, lon: t.groundLon, placeId: t.groundPlaceId || null } : null;
+        $("add-lt-heading").textContent = "Edit opponent";
+        $("btn-confirm-add-lt").textContent = "Save changes";
+        $("add-lt-name").value = t.name;
+        $("add-lt-ground").value = t.ground || "";
+        $("modal-add-league-team").hidden = false;
+      });
+    });
     $("league-teams-list").querySelectorAll("[data-lt-id]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         await remove(ref(db, `teams/${activeTeamId}/leagueTeams/${btn.dataset.ltId}`));
@@ -1746,15 +2094,35 @@ function subscribeChat() {
   subscriptions.push(unsub);
 }
 
+function scrollChatToBottom() {
+  // Double rAF: outer fires before next paint, inner fires after layout is committed
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      window.scrollTo(0, document.body.scrollHeight);
+    });
+  });
+}
+
+function isChatAtBottom() {
+  return document.body.scrollHeight - window.scrollY - window.innerHeight < 120;
+}
+
 function renderChat(msgs) {
   const list = $("chat-messages");
-  const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+  const atBottom = isChatAtBottom() || pendingScroll;
+  pendingScroll = false;
   if (msgs.length === 0) {
     list.innerHTML = '<div class="empty">No messages yet.</div>';
     return;
   }
   list.innerHTML = msgs.map(renderMessage).join("");
-  if (atBottom) list.scrollTop = list.scrollHeight;
+  if (atBottom) {
+    scrollChatToBottom();
+    // Images load asynchronously — re-scroll when they expand
+    list.querySelectorAll("img.chat-img").forEach((img) => {
+      if (!img.complete) img.addEventListener("load", scrollChatToBottom, { once: true });
+    });
+  }
   if (!$("tab-chat").hidden) {
     markRead();
   } else {
@@ -1793,6 +2161,38 @@ function updateChatBadge() {
   }
 }
 
+function subscribeEventsRead() {
+  lastEventsReadTs = 0;
+  const lrRef = ref(db, `users/${user.uid}/eventsRead/${activeTeamId}`);
+  const unsub = onValue(lrRef, (snap) => {
+    lastEventsReadTs = snap.val() || 0;
+    updateEventsBadge();
+  });
+  subscriptions.push(unsub);
+}
+
+function markEventsRead() {
+  if (!activeTeamId) return;
+  const ts = Date.now();
+  lastEventsReadTs = ts;
+  set(ref(db, `users/${user.uid}/eventsRead/${activeTeamId}`), ts);
+  updateEventsBadge();
+}
+
+function updateEventsBadge() {
+  const t = lastEventsReadTs;
+  const newEvents = Object.values(eventsCache).filter((e) => e.createdAt > t && e.createdBy !== user.uid).length;
+  const newPolls = Object.values(pollsCache).filter((p) => p.createdAt > t && p.createdBy !== user.uid).length;
+  const total = newEvents + newPolls;
+  const badge = $("events-tab-badge");
+  if (total > 0) {
+    badge.textContent = total > 99 ? "99+" : total;
+    badge.hidden = false;
+  } else {
+    badge.hidden = true;
+  }
+}
+
 function renderAnnouncements() {
   const announcements = messagesCache.filter((m) => m.type === "announcement").slice(-5).reverse();
   if (announcements.length === 0) {
@@ -1820,7 +2220,7 @@ function renderMessage(m) {
       <div class="chat-row ${isMe ? "me" : "them"}">
         ${!isMe ? `<div class="chat-sender">${escapeHtml(m.name || "?")}</div>` : ""}
         <div class="chat-bubble chat-bubble-img">
-          <img src="${escapeHtml(m.imageUrl)}" class="chat-img" alt="image" loading="lazy" />
+          <img src="${escapeHtml(m.imageUrl)}" class="chat-img" alt="image" />
         </div>
         <div class="chat-time">${when}</div>
       </div>`;
@@ -1849,6 +2249,7 @@ async function sendChatImage(file) {
     const path = `teams/${activeTeamId}/chat/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
     const snap = await uploadBytes(storageRef(storage, path), file);
     const url = await getDownloadURL(snap.ref);
+    pendingScroll = true;
     await push(ref(db, `teams/${activeTeamId}/messages`), {
       type: "image",
       imageUrl: url,
@@ -1857,6 +2258,7 @@ async function sendChatImage(file) {
       sentAt: Date.now(),
     });
   } catch (err) {
+    pendingScroll = false;
     console.error("Image upload failed:", err);
     toast("Couldn't send image");
   } finally {
@@ -1870,7 +2272,7 @@ async function sendChatMessage(type) {
   if (!text) return;
   input.value = "";
   input.style.height = "auto";
-  input.focus();
+  pendingScroll = true;
   try {
     await push(ref(db, `teams/${activeTeamId}/messages`), {
       text,
@@ -1879,7 +2281,9 @@ async function sendChatMessage(type) {
       sentAt: Date.now(),
       type,
     });
+    input.focus();
   } catch (err) {
+    pendingScroll = false;
     console.error("Chat send failed:", err);
     toast("Couldn't send message");
     input.value = text;

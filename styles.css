@@ -148,7 +148,7 @@ button { font-family: inherit; }
   font-size: 12px; font-weight: 500; color: var(--ink-2);
   margin-top: 14px; text-transform: uppercase; letter-spacing: 0.04em;
 }
-.form input, .form textarea, .form select {
+.form input, .form textarea, .form select, .field {
   background: var(--surface);
   border: 0.5px solid var(--line-2);
   border-radius: var(--r-md);
@@ -157,8 +157,10 @@ button { font-family: inherit; }
   color: var(--ink);
   font-family: inherit;
   transition: border-color 0.15s;
+  width: 100%;
+  box-sizing: border-box;
 }
-.form input:focus, .form textarea:focus {
+.form input:focus, .form textarea:focus, .field:focus {
   outline: none;
   border-color: var(--pri);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--pri) 18%, transparent);
@@ -390,6 +392,12 @@ button { font-family: inherit; }
 .badge.social { background: var(--green-bg); color: var(--green); }
 .badge.home-away { background: #1d9e75; color: #fff; }
 .badge.home-away.away { background: var(--surface-2); color: var(--ink-2); }
+.badge.poll { background: #6366f1; color: #fff; }
+.section-label-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 18px 16px 8px;
+}
+.section-label-row .section-label { margin: 0; }
 
 .event-title { font-size: 16px; font-weight: 600; margin: 0 0 2px; }
 .event-where, .event-when { color: var(--ink-2); font-size: 13px; }
@@ -704,6 +712,8 @@ button { font-family: inherit; }
   color: var(--ink-2);
 }
 .role-pill.coach { background: var(--pri); color: var(--pri-ink); }
+.member.my-child { border-color: var(--acc); }
+.my-child-tag { font-size: 11px; color: var(--acc); font-weight: 600; margin-top: 2px; }
 
 .invite-item {
   background: var(--surface);
@@ -753,6 +763,11 @@ button { font-family: inherit; }
   flex-shrink: 0;
   background: transparent; border: 1px solid var(--red); color: var(--red);
   border-radius: var(--r-sm); padding: 3px 10px; font-size: 12px; cursor: pointer;
+}
+.btn-icon {
+  flex-shrink: 0;
+  background: transparent; border: 1px solid var(--line-2); color: var(--ink-2);
+  border-radius: var(--r-sm); padding: 3px 8px; font-size: 13px; cursor: pointer;
 }
 .icon-btn {
   background: transparent; border: none; color: inherit;
@@ -938,6 +953,6 @@ button { font-family: inherit; }
   body { background: #ddd9cf; }
   @media (prefers-color-scheme: dark) { body { background: #0c0c0e; } }
   .view { max-width: 480px; margin: 0 auto; background: var(--bg); min-height: 100vh; position: relative; }
-  .tab-bar, .fab, .chat-input-bar { max-width: 480px; left: 50%; transform: translateX(-50%); right: auto; }
+  .tab-bar, .chat-input-bar { width: 480px; max-width: 100%; left: 50%; transform: translateX(-50%); right: auto; }
   .fab { left: auto; transform: none; right: calc(50% - 240px + 20px); }
 }

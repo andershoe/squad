@@ -1,4 +1,4 @@
-const CACHE = "squad-shell-v7";
+const CACHE = "squad-shell-v9";
 const SHELL = [
   "./",
   "./index.html",

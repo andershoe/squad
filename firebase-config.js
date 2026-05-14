@@ -10,6 +10,10 @@
 // database.rules.json, not from hiding these.
 // =====================================================================
 
+// Google Maps API key — enable "Places API (New)" in Cloud Console
+// Restrict to HTTP referrers: localhost:*, *.netlify.app (and your custom domain)
+window.MAPS_API_KEY = "AIzaSyCYFV4SqpxMO2uq_9LP3L8_9sRdggc3bIs";
+
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyB0bnYbcNu6_Ba5VVH1zewjIMl_2N6n_vM",
   authDomain: "squad-c97d7.firebaseapp.com",
