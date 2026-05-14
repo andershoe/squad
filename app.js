@@ -1077,15 +1077,15 @@ function subscribeEvents() {
 
 function locationLink(e, extraClass = "") {
   if (!e.location) return "";
+  const lat = parseFloat(e.locationLat);
+  const lon = parseFloat(e.locationLon);
   let url;
-  if (e.locationPlaceId) {
-    url = `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(e.locationPlaceId)}`;
+  if (!isNaN(lat) && !isNaN(lon)) {
+    url = `https://www.google.com/maps?q=${lat},${lon}`;
+  } else if (e.locationPlaceId) {
+    url = `https://maps.google.com/?q=place_id:${encodeURIComponent(e.locationPlaceId)}`;
   } else {
-    const lat = parseFloat(e.locationLat);
-    const lon = parseFloat(e.locationLon);
-    url = (!isNaN(lat) && !isNaN(lon))
-      ? `https://www.google.com/maps?q=${lat},${lon}`
-      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location)}`;
+    url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location)}`;
   }
   return ` · <a href="${url}" target="_blank" rel="noopener noreferrer" class="location-link${extraClass ? " " + extraClass : ""}" onclick="event.stopPropagation()">${escapeHtml(e.location)}</a>`;
 }
